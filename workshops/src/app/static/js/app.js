@@ -1,5 +1,5 @@
 /**
- * app.js: JS code for the ADK Bidi-streaming demo app.
+ * app.js: JS code for the ADK Gemini Live API Toolkit demo app.
  */
 
 /**
@@ -70,6 +70,7 @@ let currentInputTranscriptionElement = null;
 let currentOutputTranscriptionId = null;
 let currentOutputTranscriptionElement = null;
 let inputTranscriptionFinished = false; // Track if input transcription is complete for this turn
+let hasThoughtInTurn = false; // Track if thinking text was seen in this turn
 
 // Helper function to clean spaces between CJK characters
 // Removes spaces between Japanese/Chinese/Korean characters while preserving spaces around Latin text
@@ -482,6 +483,7 @@ function connectWebsocket() {
       currentOutputTranscriptionId = null;
       currentOutputTranscriptionElement = null;
       inputTranscriptionFinished = false; // Reset for next turn
+      hasThoughtInTurn = false; // Reset for next turn
       return;
     }
 
@@ -526,6 +528,7 @@ function connectWebsocket() {
       currentOutputTranscriptionId = null;
       currentOutputTranscriptionElement = null;
       inputTranscriptionFinished = false; // Reset for next turn
+      hasThoughtInTurn = false; // Reset for next turn
       return;
     }
 
@@ -668,6 +671,17 @@ function connectWebsocket() {
 
         // Handle text
         if (part.text) {
+          // Skip thinking/reasoning text from chat bubbles (shown in event console)
+          if (part.thought) {
+            hasThoughtInTurn = true;
+            continue;
+          }
+
+          // Skip final aggregated content that replays thinking text already seen
+          if (!adkEvent.partial && hasThoughtInTurn) {
+            continue;
+          }
+
           // Add a new message bubble for a new turn
           if (currentMessageId == null) {
             currentMessageId = Math.random().toString(36).substring(7);
