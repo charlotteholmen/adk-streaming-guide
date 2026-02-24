@@ -1,4 +1,4 @@
-# ADK Bidi-streaming Workshop: Build Your Own Real-Time Voice AI
+# ADK Gemini Live API Toolkit Workshop: Build Your Own Real-Time Voice AI
 
 ## What is Bidi-streaming?
 
@@ -31,13 +31,13 @@ sequenceDiagram
 
 **Why this matters:** Bidi-streaming makes AI conversations feel natural. The AI can respond while you're still providing context, and you can interrupt it when you've heard enough—just like talking to a human.
 
-### What is ADK Bidi-streaming?
+### What is ADK Gemini Live API Toolkit?
 
 The **[Agent Development Kit (ADK)](https://google.github.io/adk-docs/)** provides a high-level abstraction over the [Gemini Live API](https://ai.google.dev/gemini-api/docs/live), handling the complex plumbing of real-time streaming so you can focus on building your application.
 
 ![ADK abstracts away the complexity of Live API communication](assets/bidi_plumbing.webp)
 
-ADK Bidi-streaming manages:
+ADK Gemini Live API Toolkit manages:
 
 - **Connection lifecycle**: Establishing, maintaining, and recovering [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) connections
 - **Message routing**: Directing audio, text, and images to the right handlers
@@ -48,9 +48,9 @@ ADK Bidi-streaming manages:
 
 You could build directly on the Gemini Live API, but ADK handles the complex infrastructure so you can focus on your application:
 
-![Raw Live API vs. ADK Bidi-streaming](assets/live_vs_adk.png)
+![Raw Live API vs. ADK Gemini Live API Toolkit](assets/live_vs_adk.png)
 
-| Capability | Raw Live API | ADK Bidi-streaming |
+| Capability | Raw Live API | ADK Gemini Live API Toolkit |
 |------------|--------------|-------------------|
 | Agent Framework | Build from scratch | Single/multi-agent with tools, evaluation, security |
 | Tool Execution | Manual handling | Automatic parallel execution |
@@ -73,13 +73,13 @@ You could build directly on the Gemini Live API, but ADK handles the complex inf
 
 - **Financial Services**: A client reviews their portfolio while the agent displays charts and simulates trade impacts. The client can share their screen to discuss specific news articles.
 
-**Shopper's Concierge 2 Demo**: Real-time Agentic RAG demo for e-commerce, built with ADK Bidi-streaming and [Vertex AI](https://cloud.google.com/vertex-ai) Vector Search, Embeddings, Feature Store and Ranking API:
+**Shopper's Concierge 2 Demo**: Real-time Agentic RAG demo for e-commerce, built with ADK Gemini Live API Toolkit and [Vertex AI](https://cloud.google.com/vertex-ai) Vector Search, Embeddings, Feature Store and Ranking API:
 
 [![Shopper's Concierge 2 Demo](https://img.youtube.com/vi/Hwx94smxT_0/maxresdefault.jpg)](https://www.youtube.com/watch?v=Hwx94smxT_0)
 
 ### Learn More: Developer Guide
 
-For a comprehensive deep-dive, see the [ADK Bidi-streaming Developer Guide](https://google.github.io/adk-docs/streaming/dev-guide/part1/)—a 5-part series covering architecture to production deployment:
+For a comprehensive deep-dive, see the [ADK Gemini Live API Toolkit Developer Guide](https://google.github.io/adk-docs/streaming/dev-guide/part1/)—a 5-part series covering architecture to production deployment:
 
 | Part | Focus | What You'll Learn |
 |------|-------|-------------------|
@@ -104,7 +104,7 @@ In this hands-on workshop, you'll build a complete bidirectional streaming AI ap
 
 Unlike reading documentation, you'll **examine each component step by step**, understanding how the pieces fit together as you build incrementally.
 
-![ADK Bidi-streaming Demo](../docs/assets/bidi-demo-screen.png)
+![ADK Gemini Live API Toolkit Demo](../docs/assets/bidi-demo-screen.png)
 
 ### Learning Approach
 
@@ -249,7 +249,7 @@ Before diving into code, let's understand the high-level architecture and lifecy
 
 ### High-Level Architecture
 
-![High-Level Architecture of ADK Bidi-streaming](assets/Bidi_arch.jpeg)
+![High-Level Architecture of ADK Gemini Live API Toolkit](assets/Bidi_arch.jpeg)
 
 The architecture consists of three main layers:
 
@@ -449,7 +449,7 @@ This workshop uses WebSocket for bidirectional audio streaming, but you can also
 
 > **What you built**: You set up a FastAPI app with a WebSocket endpoint that receives messages and sends responses. The frontend displays it as a chat message because the response follows ADK's event format.
 >
-> **Learn more**: [ADK Bidi-streaming Architecture](https://google.github.io/adk-docs/streaming/dev-guide/part1/)
+> **Learn more**: [ADK Gemini Live API Toolkit Architecture](https://google.github.io/adk-docs/streaming/dev-guide/part1/)
 
 ---
 
@@ -1655,12 +1655,12 @@ finally:
 
 ### Resources
 
-Continue learning with these official resources. The ADK Bidi-streaming Guide provides deeper coverage of everything in this workshop.
+Continue learning with these official resources. The ADK Gemini Live API Toolkit Guide provides deeper coverage of everything in this workshop.
 
 | Resource | URL |
 |----------|-----|
 | ADK Documentation | https://google.github.io/adk-docs/ |
-| ADK Bidi-streaming Guide | https://google.github.io/adk-docs/streaming/dev-guide/ |
+| ADK Gemini Live API Toolkit Guide | https://google.github.io/adk-docs/streaming/dev-guide/ |
 | Gemini Live API | https://ai.google.dev/gemini-api/docs/live |
 | Vertex AI Live API | https://cloud.google.com/vertex-ai/generative-ai/docs/live-api |
 | ADK Samples Repository | https://github.com/google/adk-samples |

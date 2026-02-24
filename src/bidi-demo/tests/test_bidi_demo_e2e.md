@@ -1,4 +1,4 @@
-# End-to-end test procedures for ADK Bidi-streaming demo app
+# End-to-end test procedures for ADK Gemini Live API Toolkit demo app
 
 This document provides step-by-step instructions for testing the ADK bidirectional streaming demo app using Chrome DevTools MCP server.
 

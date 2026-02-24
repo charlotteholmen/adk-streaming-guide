@@ -1,6 +1,6 @@
 ---
 name: playground
-description: Build and test a customized ADK Bidi-streaming application in src/playgrounds directory based on user request
+description: Build and test a customized ADK Gemini Live API Toolkit application in src/playgrounds directory based on user request
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -11,7 +11,7 @@ Build and test customized ADK bidirectional streaming applications in the src/pl
 ## Workflow
 
 ### 1. Understand ADK and the Request
-- Reference the following for understanding ADK Bidi-streaming basics
+- Reference the following for understanding ADK Gemini Live API Toolkit basics
   - Read *.md files directly under the docs directory
   - Use google-adk, gemini-live-api, or vertexai-live-api skills as needed for specific features
 - Analyze the user's customization requirements and identify which ADK features need modification (voice, tools, models, etc.)

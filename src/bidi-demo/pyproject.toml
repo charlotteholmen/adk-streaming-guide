@@ -1,7 +1,7 @@
 [project]
 name = "bidi-demo"
 version = "0.1.0"
-description = "ADK Bidi-streaming demo application"
+description = "ADK Gemini Live API Toolkit demo application"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

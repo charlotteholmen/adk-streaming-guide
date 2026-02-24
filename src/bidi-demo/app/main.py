@@ -1,4 +1,4 @@
-"""FastAPI application demonstrating ADK Bidi-streaming with WebSocket."""
+"""FastAPI application demonstrating ADK Gemini Live API Toolkit with WebSocket."""
 
 import asyncio
 import json

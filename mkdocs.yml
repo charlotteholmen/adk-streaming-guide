@@ -101,7 +101,7 @@ plugins:
 
 # Navigation
 nav:
-  - Part 1 - Introduction to ADK Bidi-streaming: part1.md
+  - Part 1 - Introduction to ADK Gemini Live API Toolkit: part1.md
   - Part 2 - Sending messages with LiveRequestQueue: part2.md
   - Part 3 - Event handling with run_live(): part3.md
   - Part 4 - Understanding RunConfig: part4.md

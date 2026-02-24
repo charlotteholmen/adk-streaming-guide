@@ -1,4 +1,4 @@
-"""Google Search Agent definition for ADK Bidi-streaming demo."""
+"""Google Search Agent definition for ADK Gemini Live API Toolkit demo."""
 
 import os
 
