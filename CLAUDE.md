@@ -17,7 +17,7 @@ adk-streaming-guide/
 │   ├── current_adk_version.txt   # Tracked ADK version
 │   └── WORKFLOWS.md              # Workflow documentation
 ├── docs/                          # Multi-part documentation guide
-│   ├── part1.md            # Introduction to ADK Bidi-streaming
+│   ├── part1.md            # Introduction to ADK Gemini Live API Toolkit
 │   ├── part2.md  # Unified message processing
 │   ├── part3.md         # Event handling with run_live()
 │   ├── part4.md       # RunConfig configuration
@@ -275,6 +275,9 @@ Do NOT rely on MkDocs auto-reload - it may serve stale/cached content.
 
 **Verification command template:**
 ```bash
+# Activate venv (required before any mkdocs command)
+source .venv/bin/activate
+
 # After fixing part4.md section
 lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 rm -rf site/ && mkdocs build && mkdocs serve > /tmp/mkdocs.log 2>&1 &
@@ -301,6 +304,20 @@ When code blocks appear broken in rendered output:
 4. **Check for trailing spaces** - These can break admonitions unexpectedly
 
 #### MkDocs Environment Setup
+
+**First-time setup** — create a virtual environment and install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Subsequent sessions** — activate the existing venv before running any `mkdocs` command:
+
+```bash
+source .venv/bin/activate
+```
 
 The repository includes MkDocs configuration files:
 
