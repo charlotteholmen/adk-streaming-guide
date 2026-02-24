@@ -1,6 +1,7 @@
 """FastAPI application demonstrating ADK Gemini Live API Toolkit with WebSocket."""
 
 import asyncio
+import base64
 import json
 import logging
 import warnings
@@ -200,8 +201,6 @@ async def websocket_endpoint(
 
                 # Handle image data
                 elif json_message.get("type") == "image":
-                    import base64
-
                     logger.debug("Received image data")
 
                     # Decode base64 image data
