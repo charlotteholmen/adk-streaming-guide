@@ -112,7 +112,8 @@ jobs:
               repo: context.repo.repo,
               title: `ADK v${version} - Documentation Compatibility Review`,
               body: body,
-              labels: ['adk-version-update', 'documentation', 'automated']
+              labels: ['adk-version-update', 'documentation', 'automated'],
+              assignees: ['claude[bot]']
             });
 
             console.log(`Created review issue #${issue.data.number}`);
