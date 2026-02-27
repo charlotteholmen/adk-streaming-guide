@@ -43,27 +43,33 @@ When analyzing ADK compatibility:
 
 ## Usage Instructions
 
-1. **Initial Analysis**:
+1. **Update Local Repository** (always run first):
+
+   ```bash
+   cd ../adk-python && git pull
+   ```
+
+2. **Initial Analysis**:
 
    ```bash
    ls -la ../adk-python/
    find ../adk-python -name "*.py" | head -20
    ```
 
-2. **Check ADK Version and Release Notes**:
+3. **Check ADK Version and Release Notes**:
 
    ```bash
    cd ../adk-python && git log --oneline -10
    cd ../adk-python && find . -name "CHANGELOG*" -o -name "RELEASE*" -o -name "HISTORY*"
    ```
 
-3. **Examine Core Implementation**:
+4. **Examine Core Implementation**:
 
    ```bash
    find ../adk-python -name "*.py" -path "*/agent*" -o -path "*/session*" -o -path "*/live*"
    ```
 
-4. **Review Documentation**:
+5. **Review Documentation**:
 
    ```bash
    find ../adk-python -name "*.md" | grep -E "(README|doc|example)"
