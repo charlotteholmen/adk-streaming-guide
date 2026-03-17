@@ -266,6 +266,8 @@ bidi-demo/
 │           └── pcm-recorder-processor.js # Audio processing
 ├── tests/                        # E2E tests and test logs
 ├── pyproject.toml               # Python project configuration
+├── Dockerfile                   # Cloud Run container image
+├── .dockerignore                # Docker build exclusions
 └── README.md                    # This file
 ```
 
@@ -423,6 +425,108 @@ uv run isort --check .
 black --check .
 isort --check .
 ```
+
+## Deployment to Cloud Run
+
+### 1. Prerequisites
+
+- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) (`gcloud`) installed and configured
+- A Google Cloud project with Cloud Run API enabled
+- Vertex AI API enabled (if using Vertex AI Live API)
+
+### 2. Configure Environment
+
+Use `app/.env` as the source of truth. Export the values before deploying:
+
+```bash
+set -a
+source app/.env
+set +a
+```
+
+### 3. Deploy
+
+From the `src/bidi-demo` directory, deploy with `gcloud run deploy`:
+
+**Vertex AI Live API mode** (`GOOGLE_GENAI_USE_VERTEXAI=TRUE`):
+
+```bash
+gcloud run deploy bidi-demo \
+  --source . \
+  --project "${GOOGLE_CLOUD_PROJECT}" \
+  --region "${GOOGLE_CLOUD_LOCATION}" \
+  --allow-unauthenticated \
+  --timeout 3600 \
+  --min-instances 1 \
+  --max-instances 1 \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="${GOOGLE_GENAI_USE_VERTEXAI}",GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}",GOOGLE_CLOUD_LOCATION="${GOOGLE_CLOUD_LOCATION}",DEMO_AGENT_MODEL="${DEMO_AGENT_MODEL}"
+```
+
+**Gemini Live API mode** (`GOOGLE_GENAI_USE_VERTEXAI=FALSE`):
+
+```bash
+gcloud run deploy bidi-demo \
+  --source . \
+  --project "${GOOGLE_CLOUD_PROJECT}" \
+  --region "${GOOGLE_CLOUD_LOCATION}" \
+  --allow-unauthenticated \
+  --timeout 3600 \
+  --min-instances 1 \
+  --max-instances 1 \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI="${GOOGLE_GENAI_USE_VERTEXAI}",GOOGLE_API_KEY="${GOOGLE_API_KEY}",GOOGLE_CLOUD_PROJECT="${GOOGLE_CLOUD_PROJECT}",GOOGLE_CLOUD_LOCATION="${GOOGLE_CLOUD_LOCATION}",DEMO_AGENT_MODEL="${DEMO_AGENT_MODEL}"
+```
+
+Cloud Run deployments are not instant. A normal deploy can take a few minutes while source upload, Cloud Build, image rollout, and revision health checks complete.
+
+### 4. Make the Service Public (If Needed)
+
+In some projects, `--allow-unauthenticated` finishes with an IAM warning instead of granting public access. If that happens:
+
+```bash
+gcloud run services add-iam-policy-binding bidi-demo \
+  --project "${GOOGLE_CLOUD_PROJECT}" \
+  --region "${GOOGLE_CLOUD_LOCATION}" \
+  --member=allUsers \
+  --role=roles/run.invoker
+```
+
+### 5. Validate the Deployment
+
+Get the service URL:
+
+```bash
+gcloud run services describe bidi-demo \
+  --project "${GOOGLE_CLOUD_PROJECT}" \
+  --region "${GOOGLE_CLOUD_LOCATION}" \
+  --format='value(status.url)'
+```
+
+Open the app in your browser at the returned URL.
+
+### 6. Clean Up Old Revisions
+
+After each successful deploy, delete older revisions and keep only the newest five:
+
+```bash
+for rev in $(gcloud run revisions list \
+  --service bidi-demo \
+  --project "${GOOGLE_CLOUD_PROJECT}" \
+  --region "${GOOGLE_CLOUD_LOCATION}" \
+  --format='value(metadata.name)' | tail -n +6); do
+  gcloud run revisions delete "$rev" \
+    --project "${GOOGLE_CLOUD_PROJECT}" \
+    --region "${GOOGLE_CLOUD_LOCATION}" \
+    --quiet
+done
+```
+
+### Deployment Checklist
+
+- The root URL serves the HTML app
+- Text chat works end-to-end
+- Audio mode connects and streams (native audio model required)
+- WebSocket connection stays connected during conversation
+- Image input is accepted and processed
 
 ## Additional Resources
 
