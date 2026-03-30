@@ -236,6 +236,8 @@ pip install -e .
 - `uvicorn` - FastAPIアプリケーションを実行するASGIサーバー[Uvicorn](https://www.uvicorn.org/)
 - `python-dotenv` - `.env`ファイルから環境変数をロードする[python-dotenv](https://pypi.org/project/python-dotenv/)
 
+> **注意:** Cloud Shell Editorの認証は1時間後に期限切れになることがあります。認証エラーが発生した場合は、ターミナルで `gcloud auth application-default login` を実行して認証情報を更新してください。
+
 ---
 
 ## アーキテクチャ概要

@@ -241,6 +241,8 @@ This installs the bidi-workshop package and all required dependencies including:
 - `uvicorn` - [Uvicorn](https://www.uvicorn.org/), ASGI server to run FastAPI applications
 - `python-dotenv` - [python-dotenv](https://pypi.org/project/python-dotenv/), loads environment variables from `.env` files
 
+> **Note:** The Cloud Shell Editor's authentication may expire after one hour. If you encounter authentication errors, run `gcloud auth application-default login` in the terminal to refresh your credentials.
+
 ---
 
 ## Architecture Overview
