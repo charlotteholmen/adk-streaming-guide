@@ -125,7 +125,7 @@ Each step builds on the previous one. You'll test after every step to see your p
 
 ### Prerequisites
 
-- Google Cloud account with [billing enabled](https://cloud.google.com/billing/docs/how-to/modify-project)
+- [Google Cloud Project](https://developers.google.com/workspace/guides/create-project) with [billing enabled](https://cloud.google.com/billing/docs/how-to/modify-project)
 - Basic Python and async programming (async/await) knowledge
 - Web browser with microphone and web camera access (Chrome recommended)
 
