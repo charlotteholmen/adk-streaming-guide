@@ -1,3 +1,5 @@
+> 日本語版は [workshop_ja.md](workshop_ja.md) をご覧ください。
+
 # ADK Gemini Live API Toolkit Workshop: Build Your Own Real-Time Voice AI
 
 ## What is Bidi-streaming?
