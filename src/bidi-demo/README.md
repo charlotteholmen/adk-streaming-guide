@@ -43,7 +43,7 @@ The application follows ADK's recommended concurrent task pattern:
 ## Prerequisites
 
 - Python 3.10 or higher
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- [uv](https://docs.astral.sh/uv/)
 - Google API key (for Gemini Live API) or Google Cloud project (for Vertex AI Live API)
 
 **Installing uv (if not already installed):**
