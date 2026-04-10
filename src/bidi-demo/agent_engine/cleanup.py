@@ -10,7 +10,9 @@ import os
 import vertexai
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True)
+load_dotenv(
+    os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True
+)
 
 PROJECT_ID = os.environ["GOOGLE_CLOUD_PROJECT"]
 LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")

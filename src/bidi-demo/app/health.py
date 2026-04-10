@@ -84,10 +84,14 @@ async def health_live():
     async def _check():
         async with websockets.connect(ws_url) as ws:
             # Send text query
-            await ws.send(json.dumps({
-                "type": "text",
-                "text": HEALTH_CHECK_QUERY,
-            }))
+            await ws.send(
+                json.dumps(
+                    {
+                        "type": "text",
+                        "text": HEALTH_CHECK_QUERY,
+                    }
+                )
+            )
 
             # Collect events until turn_complete
             async for message in ws:

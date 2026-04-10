@@ -119,9 +119,13 @@ async def websocket_endpoint(
             output_audio_transcription=types.AudioTranscriptionConfig(),
             session_resumption=types.SessionResumptionConfig(),
             proactivity=(
-                types.ProactivityConfig(proactive_audio=True) if proactivity else None
+                types.ProactivityConfig(proactive_audio=True)
+                if proactivity
+                else None
             ),
-            enable_affective_dialog=affective_dialog if affective_dialog else None,
+            enable_affective_dialog=affective_dialog
+            if affective_dialog
+            else None,
         )
         logger.debug(
             f"Native audio model detected: {model_name}, "
@@ -177,7 +181,9 @@ async def websocket_endpoint(
             # Handle binary frames (audio data)
             if "bytes" in message:
                 audio_data = message["bytes"]
-                logger.debug(f"Received binary audio chunk: {len(audio_data)} bytes")
+                logger.debug(
+                    f"Received binary audio chunk: {len(audio_data)} bytes"
+                )
 
                 audio_blob = types.Blob(
                     mime_type="audio/pcm;rate=16000", data=audio_data
@@ -193,7 +199,9 @@ async def websocket_endpoint(
 
                 # Extract text from JSON and send to LiveRequestQueue
                 if json_message.get("type") == "text":
-                    logger.debug(f"Sending text content: {json_message['text']}")
+                    logger.debug(
+                        f"Sending text content: {json_message['text']}"
+                    )
                     content = types.Content(
                         parts=[types.Part(text=json_message["text"])]
                     )
@@ -208,18 +216,21 @@ async def websocket_endpoint(
                     mime_type = json_message.get("mimeType", "image/jpeg")
 
                     logger.debug(
-                        f"Sending image: {len(image_data)} bytes, " f"type: {mime_type}"
+                        f"Sending image: {len(image_data)} bytes, "
+                        f"type: {mime_type}"
                     )
 
                     # Send image as blob
-                    image_blob = types.Blob(mime_type=mime_type, data=image_data)
+                    image_blob = types.Blob(
+                        mime_type=mime_type, data=image_data
+                    )
                     live_request_queue.send_realtime(image_blob)
 
     async def downstream_task() -> None:
         """Receives Events from run_live() and sends to WebSocket."""
         logger.debug("downstream_task started, calling runner.run_live()")
         logger.debug(
-            f"Starting run_live with user_id={user_id}, " f"session_id={session_id}"
+            f"Starting run_live with user_id={user_id}, session_id={session_id}"
         )
         async for event in runner.run_live(
             user_id=user_id,
@@ -235,7 +246,9 @@ async def websocket_endpoint(
     # Run both tasks concurrently
     # Exceptions from either task will propagate and cancel the other task
     try:
-        logger.debug("Starting asyncio.gather for upstream and downstream tasks")
+        logger.debug(
+            "Starting asyncio.gather for upstream and downstream tasks"
+        )
         await asyncio.gather(upstream_task(), downstream_task())
         logger.debug("asyncio.gather completed normally")
     except WebSocketDisconnect:

@@ -16,7 +16,9 @@ from dotenv import load_dotenv
 from vertexai import types as vertexai_types
 from vertexai.preview.reasoning_engines import AdkApp
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True)
+load_dotenv(
+    os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
@@ -26,7 +28,7 @@ STAGING_BUCKET = os.environ["STAGING_BUCKET"]
 
 
 def main():
-    from google_search_agent.agent import agent  # noqa: PLC0415
+    from google_search_agent.agent import agent
 
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     client = vertexai.Client(project=PROJECT_ID, location=LOCATION)
@@ -43,14 +45,16 @@ def main():
     )
 
     def session_service_builder():
-        from google.adk.sessions.in_memory_session_service import \
-            InMemorySessionService
+        from google.adk.sessions.in_memory_session_service import (
+            InMemorySessionService,
+        )
 
         return InMemorySessionService()
 
     def memory_service_builder():
-        from google.adk.memory.in_memory_memory_service import \
-            InMemoryMemoryService
+        from google.adk.memory.in_memory_memory_service import (
+            InMemoryMemoryService,
+        )
 
         return InMemoryMemoryService()
 
