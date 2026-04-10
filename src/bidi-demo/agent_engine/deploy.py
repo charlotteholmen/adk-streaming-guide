@@ -11,7 +11,10 @@ Usage:
 import os
 import sys
 
+import vertexai
 from dotenv import load_dotenv
+from vertexai import types as vertexai_types
+from vertexai.preview.reasoning_engines import AdkApp
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True)
 
@@ -23,10 +26,7 @@ STAGING_BUCKET = os.environ["STAGING_BUCKET"]
 
 
 def main():
-    import vertexai
-    from google_search_agent.agent import agent
-    from vertexai import types as vertexai_types
-    from vertexai.preview.reasoning_engines import AdkApp
+    from google_search_agent.agent import agent  # noqa: PLC0415
 
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     client = vertexai.Client(project=PROJECT_ID, location=LOCATION)

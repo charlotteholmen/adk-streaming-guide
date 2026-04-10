@@ -7,6 +7,7 @@ Usage:
 
 import os
 
+import vertexai
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True)
@@ -16,8 +17,6 @@ LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 
 def main():
-    import vertexai
-
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     client = vertexai.Client(project=PROJECT_ID, location=LOCATION)
 

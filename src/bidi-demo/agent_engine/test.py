@@ -15,7 +15,11 @@ import os
 import time
 
 import numpy as np
+import vertexai
 from dotenv import load_dotenv
+from google.adk.agents.live_request_queue import LiveRequest
+from google.adk.events import Event
+from google.genai import types
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "app", ".env"), override=True)
 
@@ -30,9 +34,6 @@ def get_resource_name() -> str:
 
 async def test_automated(client, resource_name: str):
     """Run automated test queries against the deployed agent."""
-    from google.adk.agents.live_request_queue import LiveRequest
-    from google.adk.events import Event
-    from google.genai import types
 
     def prepare_live_request(text: str) -> LiveRequest:
         part = types.Part.from_text(text=text)
@@ -131,9 +132,6 @@ async def test_automated(client, resource_name: str):
 
 async def test_interactive(client, resource_name: str):
     """Run interactive chat with the deployed agent."""
-    from google.adk.agents.live_request_queue import LiveRequest
-    from google.adk.events import Event
-    from google.genai import types
 
     def prepare_live_request(text: str) -> LiveRequest:
         part = types.Part.from_text(text=text)
@@ -214,8 +212,6 @@ def main():
         "--interactive", action="store_true", help="Run interactive chat"
     )
     args = parser.parse_args()
-
-    import vertexai
 
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     client = vertexai.Client(project=PROJECT_ID, location=LOCATION)
