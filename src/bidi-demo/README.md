@@ -267,7 +267,8 @@ bidi-demo/
 ├── agent_engine/                 # Agent Engine deployment scripts
 │   ├── deploy.py               # Deploy agent to Agent Engine
 │   ├── test.py                 # Test deployed agent via bidi streaming
-│   └── cleanup.py              # Delete deployed agent
+│   ├── cleanup.py              # Delete deployed agent
+│   └── .env.template           # Environment template for Agent Engine
 ├── pyproject.toml               # Python project configuration
 ├── Dockerfile                   # Cloud Run container image
 ├── .dockerignore                # Docker build exclusions
@@ -579,7 +580,13 @@ This installs `google-cloud-aiplatform[agent_engines,adk]`, `numpy`, and `websoc
 
 ### 3. Configure Environment
 
-Add these to your `app/.env`:
+Copy the template and edit with your project details:
+
+```bash
+cp agent_engine/.env.template app/.env
+```
+
+Then edit `app/.env`:
 
 ```bash
 GOOGLE_GENAI_USE_VERTEXAI=TRUE
@@ -590,6 +597,8 @@ STAGING_BUCKET=gs://your-bucket-name
 # Must use a Vertex AI Live API model
 DEMO_AGENT_MODEL=gemini-live-2.5-flash-native-audio
 ```
+
+> **Note:** Agent Engine requires `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and a Vertex AI model. The `STAGING_BUCKET` is a Cloud Storage bucket used to stage deployment artifacts. The `GOOGLE_API_KEY` is not needed — Agent Engine uses Application Default Credentials.
 
 ### 4. Deploy
 
