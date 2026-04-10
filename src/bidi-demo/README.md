@@ -264,7 +264,10 @@ bidi-demo/
 │           ├── audio-recorder.js         # Audio recording
 │           ├── pcm-player-processor.js   # Audio processing
 │           └── pcm-recorder-processor.js # Audio processing
-├── tests/                        # E2E tests and test logs
+├── agent_engine/                 # Agent Engine deployment scripts
+│   ├── deploy.py               # Deploy agent to Agent Engine
+│   ├── test.py                 # Test deployed agent via bidi streaming
+│   └── cleanup.py              # Delete deployed agent
 ├── pyproject.toml               # Python project configuration
 ├── Dockerfile                   # Cloud Run container image
 ├── .dockerignore                # Docker build exclusions
@@ -527,6 +530,90 @@ done
 - Audio mode connects and streams (native audio model required)
 - WebSocket connection stays connected during conversation
 - Image input is accepted and processed
+
+## Deployment to Agent Engine
+
+You can deploy the agent to [Vertex AI Agent Engine](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/overview) for managed bidirectional streaming. Agent Engine handles agent scaling, infrastructure, and lifecycle management on Google Cloud.
+
+### Agent Engine vs Cloud Run
+
+Agent Engine hosts **agents**, not web applications. It does not expose a public URL or serve static files — access is via authenticated Vertex AI SDK WebSocket connections only. This makes it well suited for backend agent hosting, but not for serving the full bidi-demo webapp directly.
+
+| | Cloud Run | Agent Engine |
+|---|---|---|
+| **What's deployed** | Full webapp (FastAPI + frontend + agent) | Agent only |
+| **Public URL** | Yes | No |
+| **Static files** | Yes | No |
+| **Access method** | Browser WebSocket | Vertex AI SDK (authenticated) |
+| **Use case** | Self-contained demo, public apps | Managed agent backend, split architectures |
+
+To combine Agent Engine with a browser-facing frontend, use a split architecture where Cloud Run serves the UI and proxies WebSocket connections to Agent Engine:
+
+```
+Browser ──ws──► Cloud Run (proxy) ──SDK──► Agent Engine (agent)
+```
+
+### How the Scripts Work
+
+Three scripts in `agent_engine/` manage the Agent Engine lifecycle. All read configuration from `app/.env`.
+
+**`agent_engine/deploy.py`** — Wraps the existing agent from `app/google_search_agent/agent.py` in an `AdkApp`, then deploys it to Agent Engine with `EXPERIMENTAL` server mode (required for bidi streaming). The deployed agent's resource name is saved to `agent_resource_name.txt` for use by the other scripts.
+
+**`agent_engine/test.py`** — Connects to the deployed agent via `client.aio.live.agent_engines.connect()` and sends text queries as `LiveRequest` objects over a WebSocket. Supports two modes: automated (runs preset queries) and interactive (`--interactive` flag for a chat loop). Responses arrive as ADK `Event` objects containing audio or text.
+
+**`agent_engine/cleanup.py`** — Reads the resource name from `agent_resource_name.txt`, deletes the deployed agent from Agent Engine, and removes the file.
+
+### 1. Prerequisites
+
+- Google Cloud project with Vertex AI API enabled
+- Authenticated via `gcloud auth application-default login`
+- A Cloud Storage bucket for staging
+
+### 2. Install Agent Engine Dependencies
+
+```bash
+uv sync --extra agent-engine
+```
+
+This installs `google-cloud-aiplatform[agent_engines,adk]`, `numpy`, and `websockets` as optional dependencies.
+
+### 3. Configure Environment
+
+Add these to your `app/.env`:
+
+```bash
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+STAGING_BUCKET=gs://your-bucket-name
+
+# Must use a Vertex AI Live API model
+DEMO_AGENT_MODEL=gemini-live-2.5-flash-native-audio
+```
+
+### 4. Deploy
+
+```bash
+uv run agent_engine/deploy.py
+```
+
+The resource name is saved to `agent_resource_name.txt`.
+
+### 5. Test
+
+```bash
+# Automated test
+uv run agent_engine/test.py
+
+# Interactive chat
+uv run agent_engine/test.py --interactive
+```
+
+### 6. Cleanup
+
+```bash
+uv run agent_engine/cleanup.py
+```
 
 ## Additional Resources
 
