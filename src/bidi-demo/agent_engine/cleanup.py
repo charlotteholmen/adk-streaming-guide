@@ -15,7 +15,7 @@ load_dotenv(
 )
 
 PROJECT_ID = os.environ["GOOGLE_CLOUD_PROJECT"]
-LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-east1")
 
 
 def main():

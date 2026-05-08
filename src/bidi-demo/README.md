@@ -95,7 +95,7 @@ GOOGLE_API_KEY=your_api_key_here
 
 # For Vertex AI Live API (when GOOGLE_GENAI_USE_VERTEXAI=TRUE)
 # GOOGLE_CLOUD_PROJECT=your_project_id
-# GOOGLE_CLOUD_LOCATION=us-central1
+# GOOGLE_CLOUD_LOCATION=us-east1
 
 # Model selection (optional, defaults to native audio model)
 # See "Supported Models" section below for available model names
@@ -578,7 +578,7 @@ Then edit `app/.env`:
 ```bash
 GOOGLE_GENAI_USE_VERTEXAI=TRUE
 GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_LOCATION=us-east1
 STAGING_BUCKET=gs://your-bucket-name
 
 # Must use a Vertex AI Live API model

@@ -32,12 +32,12 @@ Deploy to Cloud Run:
       --max-instances 1 \
       --command='sh' \
       --args='-c,uvicorn health:app --host 0.0.0.0 --port $PORT' \
-      --set-env-vars BIDI_DEMO_URL=wss://bidi-demo-xxx.us-central1.run.app
+      --set-env-vars BIDI_DEMO_URL=wss://bidi-demo-xxx.us-east1.run.app
 
 Create uptime check:
     gcloud monitoring uptime create "bidi-demo /health/live" \
       --resource-type=uptime-url \
-      --resource-labels=host=bidi-demo-health-xxx.us-central1.run.app,project_id=PROJECT \
+      --resource-labels=host=bidi-demo-health-xxx.us-east1.run.app,project_id=PROJECT \
       --protocol=https \
       --path=/health/live \
       --port=443 \

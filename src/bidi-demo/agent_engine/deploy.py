@@ -23,7 +23,7 @@ load_dotenv(
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
 PROJECT_ID = os.environ["GOOGLE_CLOUD_PROJECT"]
-LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-east1")
 STAGING_BUCKET = os.environ["STAGING_BUCKET"]
 
 
