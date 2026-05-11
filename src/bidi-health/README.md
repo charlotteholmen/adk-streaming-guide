@@ -18,14 +18,16 @@ Plus:
 - `GET /health` — service liveness (no upstream check)
 - `GET /apps` — list configured app names
 
-Probes return 200 with transcript JSON on success, 503 on any failure.
+Probes return 200 with transcript JSON on success, 503 on any failure. The
+text route returns 200 `{"status":"skipped"}` when an app has
+`text_probe_enabled: false` (audio-only apps).
 
 ## Configuration
 
 Configure with `apps.yaml`. Path defaults to `./apps.yaml` (override with
 `APPS_CONFIG=/path/to/apps.yaml`). See `apps.yaml.example` for the full schema.
 
-Per-app entry:
+Minimal per-app entry (e.g. bidi-demo):
 
 ```yaml
 - name: bidi-demo-prod
@@ -33,12 +35,36 @@ Per-app entry:
   query: "What time is it in Tokyo?"
 ```
 
-The `name` becomes the URL slug (`/check/bidi-demo-prod/live`). Optional
-overrides: `audio_query`, `text_timeout_seconds`, `audio_timeout_seconds`.
+The `name` becomes the URL slug (`/check/bidi-demo-prod/live`). The query
+phrase is sent as text and synthesized to PCM for the audio probe.
 
-All target apps must follow the ADK bidi-demo protocol (WebSocket path
+Optional fields:
+
+| Field | Purpose |
+|---|---|
+| `audio_query` | Different phrase for audio probe (default: same as `query`) |
+| `text_timeout_seconds` / `audio_timeout_seconds` | Per-app timeout override |
+| `ws_query_params` | Mapping appended to the WebSocket URL as `?k=v&...` (e.g. `{source: en, target: ja}` for translator language selection) |
+| `setup_message` | JSON text frame sent **before** any other payload, for apps that require a per-session handshake (e.g. `'{"glossary":[]}'` for the translator) |
+| `text_probe_enabled` | Set `false` for audio-only apps where text input is silently dropped server-side; the text route then short-circuits with `{"status":"skipped"}` |
+
+All target apps must follow the ADK bidi-demo protocol shape (WebSocket path
 `/ws/{user_id}/{session_id}`, JSON text frames, raw PCM binary frames, ADK
-Event JSON responses).
+Event JSON responses); the optional fields above accommodate apps that vary
+slightly within that shape.
+
+Audio-only example:
+
+```yaml
+- name: adk-live-translator-prod
+  ws_url: wss://live-translation-xxx.us-central1.run.app
+  ws_query_params:
+    source: en
+    target: ja
+  setup_message: '{"glossary":[]}'
+  text_probe_enabled: false
+  query: "What time is it in Tokyo?"
+```
 
 ## Local Development
 
@@ -84,27 +110,75 @@ consider mounting via Secret Manager instead.
 
 ## Cloud Monitoring uptime checks
 
-One uptime check per `(app, probe-type)`:
+One uptime check per `(app, probe-type)` you want monitored. The matcher
+word (e.g. `Tokyo`, `東京`) lives in the uptime check, not in `apps.yaml`
+— it's a Cloud Monitoring concern. Non-ASCII matchers (Japanese, etc.) are
+supported by gcloud and round-trip cleanly through the API.
+
+Audio probe (covers both audio I/O *and* the text path implicitly):
 
 ```bash
-gcloud monitoring uptime create "bidi-demo-prod /check/.../live" \
+gcloud monitoring uptime create "bidi-demo-prod /check/.../live/audio" \
   --resource-type=uptime-url \
   --resource-labels=host=bidi-health-xxx.us-east1.run.app,project_id=PROJECT \
   --protocol=https \
-  --path=/check/bidi-demo-prod/live \
+  --path=/check/bidi-demo-prod/live/audio \
   --port=443 \
   --request-method=get \
   --matcher-content=Tokyo \
   --period=5 \
-  --timeout=30 \
+  --timeout=60 \
   --regions=europe,asia-pacific,usa-iowa \
   --validate-ssl=true \
   --project=PROJECT
 ```
 
-Repeat for `/check/bidi-demo-prod/live/audio` if you want audio coverage.
-The matcher word (e.g. `Tokyo`) lives in the uptime check, not in
-`apps.yaml` — it's a Cloud Monitoring concern.
+For the matching alert policy (uses Monitoring REST API since gcloud doesn't
+have first-class support for uptime-based alert policies):
+
+```bash
+TOKEN=$(gcloud auth print-access-token)
+CHECK_ID=...      # from gcloud monitoring uptime list-configs
+CHANNEL=projects/PROJECT/notificationChannels/...
+
+cat > policy.json <<EOF
+{
+  "displayName": "bidi-demo-prod /check/.../live/audio uptime failure",
+  "combiner": "OR",
+  "conditions": [{
+    "conditionThreshold": {
+      "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${CHECK_ID}\" AND resource.type=\"uptime_url\"",
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 1,
+      "duration": "300s",
+      "trigger": {"count": 1},
+      "aggregations": [{
+        "alignmentPeriod": "1200s",
+        "perSeriesAligner": "ALIGN_NEXT_OLDER",
+        "crossSeriesReducer": "REDUCE_COUNT_FALSE",
+        "groupByFields": ["resource.label.*"]
+      }]
+    },
+    "displayName": "Failure of uptime check_id ${CHECK_ID}"
+  }],
+  "notificationChannels": ["${CHANNEL}"],
+  "enabled": true
+}
+EOF
+
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d @policy.json \
+  "https://monitoring.googleapis.com/v3/projects/PROJECT/alertPolicies"
+```
+
+**Order of operations matters when removing**: an uptime check cannot be
+deleted while an alert policy references it. Delete the policy first, then
+the check. (gcloud surfaces this only as a generic `INVALID_ARGUMENT`.)
+
+For audio-only apps where you've set `text_probe_enabled: false`, only
+create the audio uptime check — the text route would always return
+`{"status":"skipped"}`, which would either always pass or always fail any
+matcher you set, depending on your matcher word.
 
 ## Architecture
 
