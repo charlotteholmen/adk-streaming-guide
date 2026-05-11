@@ -75,5 +75,8 @@ resources/*
 # Demo application
 src/demo/server.log
 
+# bidi-health per-deploy config
+src/bidi-health/apps.yaml
+
 # E2E tests
 tests/e2e/tmp/

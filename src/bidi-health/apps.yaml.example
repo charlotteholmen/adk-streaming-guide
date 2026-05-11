@@ -1,0 +1,31 @@
+# Generic bidi-health app config.
+#
+# At deploy time, copy this to apps.yaml and edit. Each app entry produces two
+# probe routes:
+#   GET /check/{name}/live         text probe
+#   GET /check/{name}/live/audio   audio probe (TTS-synthesized PCM input)
+#
+# All targets must follow the ADK bidi-demo protocol:
+#   WebSocket path: /ws/{user_id}/{session_id}
+#   Text frame:     {"type":"text","text":"..."}
+#   Audio frame:    raw 16kHz 16-bit PCM mono binary
+#   Events:         ADK Event JSON (camelCase via by_alias=True)
+
+defaults:
+  text_timeout_seconds: 20
+  audio_timeout_seconds: 30
+  tts_voice:
+    language_code: en-US
+    ssml_gender: NEUTRAL  # one of: NEUTRAL, MALE, FEMALE
+
+apps:
+  - name: bidi-demo-prod
+    ws_url: wss://bidi-demo-761793285222.us-east1.run.app
+    query: "What time is it in Tokyo?"
+
+  # Example with optional overrides:
+  # - name: other-bidi-app
+  #   ws_url: wss://other.example.com
+  #   query: "What's the weather in Paris?"
+  #   audio_query: "Tell me the weather in Paris"  # separate audio phrase
+  #   text_timeout_seconds: 30                      # per-app timeout override
