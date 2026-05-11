@@ -29,6 +29,20 @@ class AppConfig(BaseModel):
     text_timeout_seconds: int | None = None
     audio_timeout_seconds: int | None = None
 
+    # Optional protocol knobs for ADK apps that vary slightly from bidi-demo:
+    #
+    # ws_query_params: appended to the WebSocket URL as ?k=v&... — for apps
+    #   like adk-live-translator that select language pair via query string.
+    # setup_message: a JSON text frame sent BEFORE any other payload — for
+    #   apps that require a per-session setup handshake (e.g. translator's
+    #   glossary message).
+    # text_probe_enabled: set false for audio-only apps where text input is
+    #   silently dropped server-side. The /check/{name}/live route returns
+    #   200 {"status":"skipped"} instead of attempting a meaningless probe.
+    ws_query_params: dict[str, str] | None = None
+    setup_message: str | None = None
+    text_probe_enabled: bool = True
+
     @field_validator("name")
     @classmethod
     def _name_url_safe(cls, v: str) -> str:

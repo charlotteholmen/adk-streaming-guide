@@ -102,6 +102,11 @@ def _to_response(result: ProbeResult) -> JSONResponse | dict:
 @app.get("/check/{app_name}/live")
 async def check_live(request: Request, app_name: str):
     cfg, app_cfg = _resolve_app(request, app_name)
+    if not app_cfg.text_probe_enabled:
+        return {
+            "status": "skipped",
+            "reason": "text probe disabled for this app",
+        }
     result = await text_probe(app_cfg, cfg.defaults)
     return _to_response(result)
 

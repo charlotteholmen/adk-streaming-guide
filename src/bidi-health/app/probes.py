@@ -9,6 +9,7 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 import websockets
 from config import AppConfig, Defaults
@@ -37,7 +38,10 @@ class ProbeResult:
 def _ws_url_for(app: AppConfig, prefix: str) -> str:
     user_id = "uptime-check"
     session_id = f"{prefix}-{uuid.uuid4().hex[:12]}"
-    return f"{app.ws_url}/ws/{user_id}/{session_id}"
+    url = f"{app.ws_url}/ws/{user_id}/{session_id}"
+    if app.ws_query_params:
+        url = f"{url}?{urlencode(app.ws_query_params)}"
+    return url
 
 
 async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
@@ -53,6 +57,8 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
 
     async def _check():
         async with websockets.connect(ws_url) as ws:
+            if app.setup_message:
+                await ws.send(app.setup_message)
             await ws.send(json.dumps({"type": "text", "text": app.query}))
             async for message in ws:
                 event = json.loads(message)
@@ -110,6 +116,8 @@ async def audio_probe(
 
     async def _check():
         async with websockets.connect(ws_url) as ws:
+            if app.setup_message:
+                await ws.send(app.setup_message)
             for offset in range(0, len(payload), AUDIO_CHUNK_BYTES):
                 await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
                 # Pace at real-time so VAD sees a normal stream, not a burst
