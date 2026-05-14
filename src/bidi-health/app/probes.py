@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 AUDIO_SAMPLE_RATE = 16000
 AUDIO_BYTES_PER_SAMPLE = 2  # 16-bit
 AUDIO_CHUNK_MS = 100
-AUDIO_CHUNK_BYTES = (
-    AUDIO_SAMPLE_RATE * AUDIO_BYTES_PER_SAMPLE * AUDIO_CHUNK_MS // 1000
-)
+AUDIO_CHUNK_BYTES = AUDIO_SAMPLE_RATE * AUDIO_BYTES_PER_SAMPLE * AUDIO_CHUNK_MS // 1000
 AUDIO_TRAILING_SILENCE_MS = 1500  # let automatic VAD detect end-of-speech
 
 
@@ -49,43 +47,59 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
 
     Collects from both `content.parts[].text` (half-cascade models) and
     `outputTranscription.text` (native-audio models) so the same probe works
-    against either modality.
+    against either modality. Retries once on abrupt WebSocket close — the
+    upstream commonly drops the connection without a close frame when it
+    can't open a Live API session (e.g. transient RESOURCE_EXHAUSTED).
     """
-    transcript_parts: list[str] = []
     timeout = app.effective_text_timeout(defaults)
-    ws_url = _ws_url_for(app, "health")
+    transcript_parts: list[str] = []
 
-    async def _check():
-        async with websockets.connect(ws_url) as ws:
-            if app.setup_message:
-                await ws.send(app.setup_message)
-            await ws.send(json.dumps({"type": "text", "text": app.query}))
-            async for message in ws:
-                event = json.loads(message)
+    for attempt in range(2):
+        transcript_parts.clear()
+        ws_url = _ws_url_for(app, "health")
 
-                content = event.get("content")
-                if content and content.get("parts"):
-                    for part in content["parts"]:
-                        if part.get("text"):
-                            transcript_parts.append(part["text"])
+        async def _check():
+            async with websockets.connect(ws_url) as ws:
+                if app.setup_message:
+                    await ws.send(app.setup_message)
+                await ws.send(json.dumps({"type": "text", "text": app.query}))
+                async for message in ws:
+                    event = json.loads(message)
 
-                ot = event.get("outputTranscription")
-                if ot and ot.get("text"):
-                    transcript_parts.append(ot["text"])
+                    content = event.get("content")
+                    if content and content.get("parts"):
+                        for part in content["parts"]:
+                            if part.get("text"):
+                                transcript_parts.append(part["text"])
 
-                # turnComplete is the canonical end-of-turn signal but can be
-                # late or missed. outputTranscription.finished is the
-                # per-sentence boundary and is reliably present on the final
-                # aggregated event.
-                if event.get("turnComplete") or (ot and ot.get("finished")):
-                    break
+                    ot = event.get("outputTranscription")
+                    if ot and ot.get("text"):
+                        transcript_parts.append(ot["text"])
 
-    try:
-        await asyncio.wait_for(_check(), timeout=timeout)
-    except asyncio.TimeoutError:
-        return ProbeResult(ok=False, error="Model response timed out")
-    except Exception as e:
-        return ProbeResult(ok=False, error=str(e))
+                    # turnComplete is the canonical end-of-turn signal but can
+                    # be late or missed. outputTranscription.finished is the
+                    # per-sentence boundary and is reliably present on the
+                    # final aggregated event.
+                    if event.get("turnComplete") or (ot and ot.get("finished")):
+                        break
+
+        try:
+            await asyncio.wait_for(_check(), timeout=timeout)
+            break
+        except asyncio.TimeoutError:
+            return ProbeResult(ok=False, error="Model response timed out")
+        except websockets.exceptions.ConnectionClosed as e:
+            if attempt == 0:
+                logger.warning(
+                    "text_probe %s closed early (%s); retrying once",
+                    app.name,
+                    e,
+                )
+                await asyncio.sleep(2)
+                continue
+            return ProbeResult(ok=False, error=str(e))
+        except Exception as e:
+            return ProbeResult(ok=False, error=str(e))
 
     transcript = "".join(transcript_parts)
     if not transcript:
@@ -93,60 +107,71 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
     return ProbeResult(ok=True, transcript=transcript)
 
 
-async def audio_probe(
-    app: AppConfig, defaults: Defaults, pcm: bytes
-) -> ProbeResult:
+async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeResult:
     """Stream pre-synthesized PCM as binary frames + trailing silence.
 
     Validates BOTH `inputTranscription` (Vertex transcribed what we sent) and
-    `outputTranscription` (model produced an audio response).
+    `outputTranscription` (model produced an audio response). Retries once on
+    abrupt WebSocket close — see text_probe for rationale.
     """
+    timeout = app.effective_audio_timeout(defaults)
     input_parts: list[str] = []
     output_parts: list[str] = []
-    timeout = app.effective_audio_timeout(defaults)
-    ws_url = _ws_url_for(app, "health-audio")
 
     silence = b"\x00" * (
-        AUDIO_SAMPLE_RATE
-        * AUDIO_BYTES_PER_SAMPLE
-        * AUDIO_TRAILING_SILENCE_MS
-        // 1000
+        AUDIO_SAMPLE_RATE * AUDIO_BYTES_PER_SAMPLE * AUDIO_TRAILING_SILENCE_MS // 1000
     )
     payload = pcm + silence
 
-    async def _check():
-        async with websockets.connect(ws_url) as ws:
-            if app.setup_message:
-                await ws.send(app.setup_message)
-            for offset in range(0, len(payload), AUDIO_CHUNK_BYTES):
-                await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
-                # Pace at real-time so VAD sees a normal stream, not a burst
-                await asyncio.sleep(AUDIO_CHUNK_MS / 1000)
+    for attempt in range(2):
+        input_parts.clear()
+        output_parts.clear()
+        ws_url = _ws_url_for(app, "health-audio")
 
-            async for message in ws:
-                event = json.loads(message)
+        async def _check():
+            async with websockets.connect(ws_url) as ws:
+                if app.setup_message:
+                    await ws.send(app.setup_message)
+                for offset in range(0, len(payload), AUDIO_CHUNK_BYTES):
+                    await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
+                    # Pace at real-time so VAD sees a normal stream, not a burst
+                    await asyncio.sleep(AUDIO_CHUNK_MS / 1000)
 
-                it = event.get("inputTranscription")
-                if it and it.get("text"):
-                    input_parts.append(it["text"])
-                ot = event.get("outputTranscription")
-                if ot and ot.get("text"):
-                    output_parts.append(ot["text"])
+                async for message in ws:
+                    event = json.loads(message)
 
-                if event.get("turnComplete") or (ot and ot.get("finished")):
-                    break
+                    it = event.get("inputTranscription")
+                    if it and it.get("text"):
+                        input_parts.append(it["text"])
+                    ot = event.get("outputTranscription")
+                    if ot and ot.get("text"):
+                        output_parts.append(ot["text"])
 
-    try:
-        await asyncio.wait_for(_check(), timeout=timeout)
-    except asyncio.TimeoutError:
-        return ProbeResult(
-            ok=False,
-            error="Audio probe timed out",
-            input_transcription="".join(input_parts) or None,
-            output_transcription="".join(output_parts) or None,
-        )
-    except Exception as e:
-        return ProbeResult(ok=False, error=str(e))
+                    if event.get("turnComplete") or (ot and ot.get("finished")):
+                        break
+
+        try:
+            await asyncio.wait_for(_check(), timeout=timeout)
+            break
+        except asyncio.TimeoutError:
+            return ProbeResult(
+                ok=False,
+                error="Audio probe timed out",
+                input_transcription="".join(input_parts) or None,
+                output_transcription="".join(output_parts) or None,
+            )
+        except websockets.exceptions.ConnectionClosed as e:
+            if attempt == 0:
+                logger.warning(
+                    "audio_probe %s closed early (%s); retrying once",
+                    app.name,
+                    e,
+                )
+                await asyncio.sleep(2)
+                continue
+            return ProbeResult(ok=False, error=str(e))
+        except Exception as e:
+            return ProbeResult(ok=False, error=str(e))
 
     input_transcription = "".join(input_parts)
     output_transcription = "".join(output_parts)

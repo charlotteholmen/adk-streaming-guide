@@ -149,8 +149,8 @@ cat > policy.json <<EOF
     "conditionThreshold": {
       "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${CHECK_ID}\" AND resource.type=\"uptime_url\"",
       "comparison": "COMPARISON_GT",
-      "thresholdValue": 1,
-      "duration": "300s",
+      "thresholdValue": 2,
+      "duration": "600s",
       "trigger": {"count": 1},
       "aggregations": [{
         "alignmentPeriod": "1200s",
@@ -179,6 +179,96 @@ For audio-only apps where you've set `text_probe_enabled: false`, only
 create the audio uptime check — the text route would always return
 `{"status":"skipped"}`, which would either always pass or always fail any
 matcher you set, depending on your matcher word.
+
+## Tuning the alert policy
+
+The example policy above (`thresholdValue: 2`, `duration: 600s`) is intentionally
+loose: it requires more than one region's series to be failing for >10 minutes
+before paging. Tighter values (`thresholdValue: 1`, `duration: 300s`) flap on
+single transient probe failures, which are common — see "Live API quota
+flapping" below.
+
+## Probe retry behavior
+
+Both `text_probe` and `audio_probe` retry **once** on
+`websockets.ConnectionClosed` with a 2-second backoff. This masks the most
+common transient upstream failure: an ADK app that drops the WebSocket
+without a clean close frame because Live API connect threw an exception
+(commonly `RESOURCE_EXHAUSTED`).
+
+Timeouts are **not** retried — a slow upstream stays slow, and retrying just
+adds load. Look for `closed early ...; retrying once` warnings in the
+bidi-health logs to spot transient upstream blips that the retry papered
+over.
+
+## Live API quota flapping
+
+If probes flap with `"no close frame received or sent"` errors that resolve
+within minutes, the upstream app is almost certainly hitting Live API
+concurrent session quota. The error surfaces in the **upstream app's** logs
+(not bidi-health's), as:
+
+```
+google.genai.errors.APIError: 1011 RESOURCE_EXHAUSTED:
+Maximum concurrent sessions exceeded.
+```
+
+### The us-central1 cap
+
+`bidi_gen_concurrent_reqs_per_project_per_base_model` is **30 in us-central1**
+for every Live API model, vs **5000** in us-east1, us-east4, europe-*, and
+most other regions (1000 for the `gemini-3.1-flash-live-preview-*` model).
+The cap is per project per base model, so all apps in the project sharing the
+same model in the same region compete for the same 30 slots.
+
+If your app lives in us-central1, the cheapest fix is to redeploy in another
+region (us-east1, us-west1, etc.) — same model, 5000-session cap, no quota
+request needed.
+
+### Checking the quota
+
+```bash
+TOKEN=$(gcloud auth print-access-token)
+PROJECT=your-project-id
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://cloudquotas.googleapis.com/v1/projects/${PROJECT}/locations/global/services/aiplatform.googleapis.com/quotaInfos?pageSize=500" \
+  | jq -r '.quotaInfos[]
+      | select(.metric == "aiplatform.googleapis.com/bidi_gen_concurrent_reqs_per_project_per_base_model")
+      | .dimensionsInfos[]
+      | "\(.dimensions.region // "?") \(.dimensions.base_model // "(default)") = \(.details.value)"'
+```
+
+### Checking usage
+
+Vertex AI **does not export Live API session usage** to Cloud Monitoring as
+of writing — `serviceruntime.googleapis.com/quota/concurrent/usage` filtered
+on the bidi quota metric returns no series, and there is no equivalent
+`aiplatform.googleapis.com/*` metric. Real-time concurrent session counts
+are not directly observable.
+
+The best proxy is counting `RESOURCE_EXHAUSTED` events in the upstream app's
+logs:
+
+```bash
+gcloud logging read \
+  'resource.type=cloud_run_revision
+   AND resource.labels.service_name=YOUR-UPSTREAM-SERVICE
+   AND severity=ERROR
+   AND textPayload:"RESOURCE_EXHAUSTED: Maximum concurrent sessions exceeded"' \
+  --project=YOUR-PROJECT --limit=5000 --freshness=30d \
+  --format='value(timestamp)' \
+  | awk -F'T' '{print $1}' | sort | uniq -c
+```
+
+Each connect failure logs the exception twice (once from
+`google.genai.live.connect`, once from the wrapping `websocket_endpoint`),
+so divide raw counts by 2 for actual failure events. Cloud Logging default
+retention is 30 days — for longer history, route to a longer-retention
+bucket or BigQuery sink.
+
+For a chartable signal, create a logs-based metric on the same filter and
+alert on its rate.
 
 ## Architecture
 
