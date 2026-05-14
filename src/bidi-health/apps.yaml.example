@@ -36,11 +36,13 @@ apps:
     # Audio of "What time is it in Tokyo?" is translated to Japanese; expect
     # "東京" in outputTranscription. Set the Cloud Monitoring matcher to "東京".
 
-  # Hotel concierge app — same protocol as bidi-demo, no extra knobs.
-  # Pick a query whose response reliably contains a hotel-specific keyword
-  # to use as the Cloud Monitoring matcher (e.g. "Las Vegas").
+  # Hotel concierge app — audio-only (response modality is AUDIO, so text
+  # input returns no transcribable text). Pick a query whose response
+  # reliably contains a hotel-specific keyword to use as the Cloud
+  # Monitoring matcher (e.g. "Las Vegas").
   - name: grounding-demo-prod
     ws_url: wss://grounding-demo-761793285222.us-east1.run.app
+    text_probe_enabled: false
     query: "Where is your hotel?"
 
   # Example with optional overrides:
