@@ -38,6 +38,13 @@ class ProbeResult:
 # response typically settle in 3-10s; 20s leaves headroom.
 READY_WAIT_SECONDS = 20.0
 
+# Some upstream apps (e.g. adk-live-translator) emit the ready signal as soon
+# as the warmup turn produces its first audio part, but only finish wiring the
+# Live session to the upstream's audio forwarder a moment later. Audio sent in
+# that window is silently dropped. Sleep briefly after ready to let the
+# upstream finish wiring up.
+READY_SETTLE_SECONDS = 2.0
+
 
 class _ReadyWaitTimeout(Exception):
     """Raised when the upstream's warmup-ready signal never arrives."""
@@ -47,7 +54,8 @@ async def _wait_for_ready(ws) -> None:
     """Read text frames until one decodes to a dict with `ready == True`.
 
     Non-JSON and binary frames are ignored. Raises `_ReadyWaitTimeout` if no
-    such frame arrives within `READY_WAIT_SECONDS`.
+    such frame arrives within `READY_WAIT_SECONDS`. After detecting ready,
+    sleeps `READY_SETTLE_SECONDS` to avoid the race window described above.
     """
     try:
         async with asyncio.timeout(READY_WAIT_SECONDS):
@@ -57,6 +65,7 @@ async def _wait_for_ready(ws) -> None:
                 except (TypeError, ValueError):
                     continue
                 if isinstance(event, dict) and event.get("ready") is True:
+                    await asyncio.sleep(READY_SETTLE_SECONDS)
                     return
     except asyncio.TimeoutError as e:
         raise _ReadyWaitTimeout(
