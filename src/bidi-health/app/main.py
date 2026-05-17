@@ -66,7 +66,8 @@ async def list_apps(request: Request):
     cfg: AppsConfig = request.app.state.cfg
     return {
         "apps": [
-            {"name": a.name, "ws_url": a.ws_url, "query": a.query} for a in cfg.apps
+            {"name": a.name, "ws_url": a.ws_url, "query": a.query}
+            for a in cfg.apps
         ]
     }
 
@@ -113,6 +114,8 @@ async def check_live(request: Request, app_name: str):
 @app.get("/check/{app_name}/live/audio")
 async def check_live_audio(request: Request, app_name: str):
     cfg, app_cfg = _resolve_app(request, app_name)
-    pcm = synthesize_query(app_cfg.effective_audio_query(), cfg.defaults.tts_voice)
+    pcm = synthesize_query(
+        app_cfg.effective_audio_query(), cfg.defaults.tts_voice
+    )
     result = await audio_probe(app_cfg, cfg.defaults, pcm)
     return _to_response(result)

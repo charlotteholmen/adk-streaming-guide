@@ -33,46 +33,6 @@ class ProbeResult:
     error: str | None = None
 
 
-# Max time to wait for the upstream `{"ready": true}` warmup signal. Apps that
-# warm up by sending a short clip to the model and waiting for the first real
-# response typically settle in 3-10s; 20s leaves headroom.
-READY_WAIT_SECONDS = 20.0
-
-# Some upstream apps (e.g. adk-live-translator) emit the ready signal as soon
-# as the warmup turn produces its first audio part, but only finish wiring the
-# Live session to the upstream's audio forwarder a moment later. Audio sent in
-# that window is silently dropped. Sleep briefly after ready to let the
-# upstream finish wiring up.
-READY_SETTLE_SECONDS = 2.0
-
-
-class _ReadyWaitTimeout(Exception):
-    """Raised when the upstream's warmup-ready signal never arrives."""
-
-
-async def _wait_for_ready(ws) -> None:
-    """Read text frames until one decodes to a dict with `ready == True`.
-
-    Non-JSON and binary frames are ignored. Raises `_ReadyWaitTimeout` if no
-    such frame arrives within `READY_WAIT_SECONDS`. After detecting ready,
-    sleeps `READY_SETTLE_SECONDS` to avoid the race window described above.
-    """
-    try:
-        async with asyncio.timeout(READY_WAIT_SECONDS):
-            async for message in ws:
-                try:
-                    event = json.loads(message)
-                except (TypeError, ValueError):
-                    continue
-                if isinstance(event, dict) and event.get("ready") is True:
-                    await asyncio.sleep(READY_SETTLE_SECONDS)
-                    return
-    except asyncio.TimeoutError as e:
-        raise _ReadyWaitTimeout(
-            f"upstream did not emit ready signal within {READY_WAIT_SECONDS}s"
-        ) from e
-
-
 def _ws_url_for(app: AppConfig, prefix: str) -> str:
     user_id = "uptime-check"
     session_id = f"{prefix}-{uuid.uuid4().hex[:12]}"
@@ -102,8 +62,6 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
             async with websockets.connect(ws_url) as ws:
                 if app.setup_message:
                     await ws.send(app.setup_message)
-                if app.wait_for_ready:
-                    await _wait_for_ready(ws)
                 await ws.send(json.dumps({"type": "text", "text": app.query}))
                 async for message in ws:
                     event = json.loads(message)
@@ -130,8 +88,6 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
             break
         except asyncio.TimeoutError:
             return ProbeResult(ok=False, error="Model response timed out")
-        except _ReadyWaitTimeout as e:
-            return ProbeResult(ok=False, error=str(e))
         except websockets.exceptions.ConnectionClosed as e:
             if attempt == 0:
                 logger.warning(
@@ -176,8 +132,6 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
             async with websockets.connect(ws_url) as ws:
                 if app.setup_message:
                     await ws.send(app.setup_message)
-                if app.wait_for_ready:
-                    await _wait_for_ready(ws)
                 for offset in range(0, len(payload), AUDIO_CHUNK_BYTES):
                     await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
                     # Pace at real-time so VAD sees a normal stream, not a burst
@@ -206,8 +160,6 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                 input_transcription="".join(input_parts) or None,
                 output_transcription="".join(output_parts) or None,
             )
-        except _ReadyWaitTimeout as e:
-            return ProbeResult(ok=False, error=str(e))
         except websockets.exceptions.ConnectionClosed as e:
             if attempt == 0:
                 logger.warning(
