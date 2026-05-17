@@ -25,6 +25,9 @@ apps:
 
   # Audio-only app (text input is silently dropped server-side).
   # Sends a setup JSON frame before audio. Selects language pair via URL query.
+  # Runs a server-side warmup at session start and emits `{"ready": true}`
+  # when finished — wait for that signal before sending audio, otherwise the
+  # upstream's post-warmup filter discards probe transcripts.
   - name: adk-live-translator-prod
     ws_url: wss://live-translation-761793285222.us-central1.run.app
     ws_query_params:
@@ -32,6 +35,8 @@ apps:
       target: ja
     setup_message: '{"glossary":[]}'
     text_probe_enabled: false
+    wait_for_ready: true
+    audio_timeout_seconds: 45  # default 30 is tight once warmup is added
     query: "What time is it in Tokyo?"
     # Audio of "What time is it in Tokyo?" is translated to Japanese; expect
     # "東京" in outputTranscription. Set the Cloud Monitoring matcher to "東京".

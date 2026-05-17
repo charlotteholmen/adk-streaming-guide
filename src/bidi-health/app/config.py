@@ -39,26 +39,27 @@ class AppConfig(BaseModel):
     # text_probe_enabled: set false for audio-only apps where text input is
     #   silently dropped server-side. The /check/{name}/live route returns
     #   200 {"status":"skipped"} instead of attempting a meaningless probe.
+    # wait_for_ready: set true for apps that run a server-side warmup at the
+    #   start of each session and emit `{"ready": true}` when finished. The
+    #   probe then waits for that signal before sending its payload so audio
+    #   is not discarded by the upstream's post-warmup filter.
     ws_query_params: dict[str, str] | None = None
     setup_message: str | None = None
     text_probe_enabled: bool = True
+    wait_for_ready: bool = False
 
     @field_validator("name")
     @classmethod
     def _name_url_safe(cls, v: str) -> str:
         if not _NAME_PATTERN.fullmatch(v):
-            raise ValueError(
-                f"name must match {_NAME_PATTERN.pattern!r}, got {v!r}"
-            )
+            raise ValueError(f"name must match {_NAME_PATTERN.pattern!r}, got {v!r}")
         return v
 
     @field_validator("ws_url")
     @classmethod
     def _ws_url_scheme(cls, v: str) -> str:
         if not (v.startswith("ws://") or v.startswith("wss://")):
-            raise ValueError(
-                f"ws_url must start with ws:// or wss://, got {v!r}"
-            )
+            raise ValueError(f"ws_url must start with ws:// or wss://, got {v!r}")
         return v.rstrip("/")
 
     def effective_text_timeout(self, defaults: Defaults) -> int:

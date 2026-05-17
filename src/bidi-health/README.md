@@ -47,13 +47,14 @@ Optional fields:
 | `ws_query_params` | Mapping appended to the WebSocket URL as `?k=v&...` (e.g. `{source: en, target: ja}` for translator language selection) |
 | `setup_message` | JSON text frame sent **before** any other payload, for apps that require a per-session handshake (e.g. `'{"glossary":[]}'` for the translator) |
 | `text_probe_enabled` | Set `false` for audio-only apps where text input is silently dropped server-side; the text route then short-circuits with `{"status":"skipped"}` |
+| `wait_for_ready` | Set `true` for apps that run a server-side warmup at session start and emit `{"ready": true}` when finished. The probe waits for that signal (up to 20s) before sending its payload — otherwise audio sent during warmup is discarded by the upstream's post-warmup filter |
 
 All target apps must follow the ADK bidi-demo protocol shape (WebSocket path
 `/ws/{user_id}/{session_id}`, JSON text frames, raw PCM binary frames, ADK
 Event JSON responses); the optional fields above accommodate apps that vary
 slightly within that shape.
 
-Audio-only example:
+Audio-only example with server-side warmup:
 
 ```yaml
 - name: adk-live-translator-prod
@@ -63,6 +64,8 @@ Audio-only example:
     target: ja
   setup_message: '{"glossary":[]}'
   text_probe_enabled: false
+  wait_for_ready: true
+  audio_timeout_seconds: 45  # default 30 is tight once warmup is added
   query: "What time is it in Tokyo?"
 ```
 
