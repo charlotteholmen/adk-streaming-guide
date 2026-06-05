@@ -6,4 +6,3 @@ __pycache__
 app/.env
 app/server.log
 tests
-uv.lock
