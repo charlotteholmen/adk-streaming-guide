@@ -110,15 +110,23 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
     `outputTranscription` (model produced an audio response). Retries once on
     abrupt WebSocket close — see text_probe for rationale.
 
-    Native audio models with grounding tools (e.g. Google Search) deliver
-    outputTranscription events AFTER turnComplete — the model streams audio
-    first, then the transcription service catches up. The loop therefore waits
-    for ``outputTranscription.finished == True`` with non-empty text as the
-    exit condition, not ``turnComplete``.
+    Three transcription patterns exist across models:
+
+    1. Non-grounding apps (bidi-demo): cumulative partials → finished=true
+       with full text → turnComplete.  Each partial replaces the previous.
+    2. Grounding apps (grounding-demo): turnComplete fires FIRST with no
+       output, then cumulative partials arrive late, ending with finished=true.
+    3. Translator (gemini-3.1-flash-live): incremental (non-cumulative)
+       chunks → turnComplete.  finished=true is never sent.
+
+    Strategy: append all partials (works for both cumulative and incremental)
+    and exit on finished=true OR turnComplete — whichever comes first.
+    For pattern 2, turnComplete arrives with no output yet, so we drain
+    until finished=true or a 15s timeout.
     """
     timeout = app.effective_audio_timeout(defaults)
-    input_text: list[str] = []
-    output_text: list[str] = []
+    input_parts: list[str] = []
+    output_parts: list[str] = []
 
     silence = b"\x00" * (
         AUDIO_SAMPLE_RATE * AUDIO_BYTES_PER_SAMPLE * AUDIO_TRAILING_SILENCE_MS // 1000
@@ -126,8 +134,8 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
     payload = pcm + silence
 
     for attempt in range(2):
-        input_text.clear()
-        output_text.clear()
+        input_parts.clear()
+        output_parts.clear()
         ws_url = _ws_url_for(app, "health-audio")
 
         async def _check():
@@ -143,30 +151,24 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
 
                     it = event.get("inputTranscription")
                     if it and it.get("text"):
-                        input_text[:] = [it["text"]]
-
+                        input_parts.append(it["text"])
                     ot = event.get("outputTranscription")
                     if ot and ot.get("text"):
-                        output_text[:] = [ot["text"]]
+                        output_parts.append(ot["text"])
 
-                    # Best: finished transcription with text.
-                    if ot and ot.get("finished") and output_text:
+                    if ot and ot.get("finished") and output_parts:
                         break
-                    # Fallback: turnComplete after output was already
-                    # collected (apps that never send finished=true).
-                    if event.get("turnComplete") and output_text:
+                    if event.get("turnComplete") and output_parts:
                         break
 
-                    # turnComplete with no output yet → grounding-tool
-                    # apps deliver transcription late. Keep draining.
-                    if event.get("turnComplete") and not output_text:
+                    if event.get("turnComplete") and not output_parts:
                         async def _drain():
                             async for msg in ws:
                                 ev = json.loads(msg)
                                 o = ev.get("outputTranscription")
                                 if o and o.get("text"):
-                                    output_text[:] = [o["text"]]
-                                if o and o.get("finished") and output_text:
+                                    output_parts.append(o["text"])
+                                if o and o.get("finished") and output_parts:
                                     break
                         try:
                             await asyncio.wait_for(_drain(), timeout=15)
@@ -181,8 +183,8 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
             return ProbeResult(
                 ok=False,
                 error="Audio probe timed out",
-                input_transcription=input_text[0] if input_text else None,
-                output_transcription=output_text[0] if output_text else None,
+                input_transcription="".join(input_parts) or None,
+                output_transcription="".join(output_parts) or None,
             )
         except websockets.exceptions.ConnectionClosed as e:
             if attempt == 0:
@@ -197,8 +199,8 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
         except Exception as e:
             return ProbeResult(ok=False, error=str(e))
 
-    input_transcription = input_text[0] if input_text else ""
-    output_transcription = output_text[0] if output_text else ""
+    input_transcription = "".join(input_parts)
+    output_transcription = "".join(output_parts)
 
     if not input_transcription:
         return ProbeResult(
