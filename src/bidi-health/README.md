@@ -188,6 +188,33 @@ before paging. Tighter values (`thresholdValue: 1`, `duration: 300s`) flap on
 single transient probe failures, which are common — see "Live API quota
 flapping" below.
 
+## Native audio transcription patterns
+
+The audio probe must handle three distinct `outputTranscription` event
+orderings depending on the model and whether grounding tools are used:
+
+| Pattern | Apps | Partials | `finished=true` | `turnComplete` order |
+|---|---|---|---|---|
+| **Standard** | bidi-demo | Cumulative (each event contains full text so far) | Sent with full text | After `finished` |
+| **Grounding** | grounding-demo | Cumulative, arrive **after** `turnComplete` | Sent with full text, also after `turnComplete` | Before any output |
+| **Translator** | adk-live-translator (`gemini-3.1-flash-live`) | Incremental (each event is a new chunk) | **Never sent** | After last chunk |
+
+The probe uses `append` (not replace) for output transcription so both
+cumulative and incremental patterns produce usable text. For cumulative
+apps the appended text is redundant (e.g. `"The GrandThe Grand Sapphire…"`)
+but the content matcher still finds the expected substring.
+
+Exit conditions, checked in order:
+
+1. `outputTranscription.finished == true` with non-empty output — covers
+   standard and grounding patterns once late transcription arrives.
+2. `turnComplete` with output already collected — covers the translator
+   and any app that never sends `finished=true`.
+3. `turnComplete` with **no** output yet — enters a 15-second drain loop
+   waiting for late transcription (grounding pattern). The outer
+   per-app timeout (`audio_timeout_seconds`, default 30s) caps total
+   probe duration.
+
 ## Probe retry behavior
 
 Both `text_probe` and `audio_probe` retry **once** on
