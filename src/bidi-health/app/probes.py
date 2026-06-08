@@ -137,6 +137,7 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                     # Pace at real-time so VAD sees a normal stream, not a burst
                     await asyncio.sleep(AUDIO_CHUNK_MS / 1000)
 
+                turn_done = False
                 async for message in ws:
                     event = json.loads(message)
 
@@ -148,7 +149,24 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                         output_parts.append(ot["text"])
 
                     if event.get("turnComplete") or (ot and ot.get("finished")):
+                        turn_done = True
+                    if turn_done and output_parts:
                         break
+
+                # Grace period: with grounding tools the native audio model
+                # may deliver outputTranscription AFTER turnComplete.
+                if turn_done and not output_parts:
+                    async def _drain_late():
+                        async for message in ws:
+                            event = json.loads(message)
+                            ot = event.get("outputTranscription")
+                            if ot and ot.get("text"):
+                                output_parts.append(ot["text"])
+                                break
+                    try:
+                        await asyncio.wait_for(_drain_late(), timeout=3)
+                    except asyncio.TimeoutError:
+                        pass
 
         try:
             await asyncio.wait_for(_check(), timeout=timeout)
