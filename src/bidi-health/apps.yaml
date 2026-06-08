@@ -1,0 +1,26 @@
+defaults:
+  text_timeout_seconds: 20
+  audio_timeout_seconds: 30
+  tts_voice:
+    language_code: en-US
+    ssml_gender: NEUTRAL
+
+apps:
+  - name: bidi-demo-prod
+    ws_url: wss://bidi-demo-761793285222.us-central1.run.app
+    query: "What time is it in Tokyo?"
+
+  - name: adk-live-translator-prod
+    ws_url: wss://live-translation-761793285222.us-central1.run.app
+    ws_query_params:
+      source: en
+      target: ja
+    setup_message: '{"glossary":[]}'
+    text_probe_enabled: false
+    query: "What time is it in Tokyo?"
+
+  - name: grounding-demo-prod
+    ws_url: wss://grounding-demo-761793285222.us-east1.run.app
+    text_probe_enabled: false
+    audio_timeout_seconds: 45
+    query: "What is the Strat tower?"
