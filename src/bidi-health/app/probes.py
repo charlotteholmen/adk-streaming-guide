@@ -138,7 +138,6 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                     await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
                     await asyncio.sleep(AUDIO_CHUNK_MS / 1000)
 
-                turn_done = False
                 async for message in ws:
                     event = json.loads(message)
 
@@ -150,33 +149,13 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                     if ot and ot.get("text"):
                         output_text[:] = [ot["text"]]
 
-                    if event.get("turnComplete"):
-                        turn_done = True
-                    # Finished transcription with text — done.
+                    # Wait for the FINAL transcription: finished=true
+                    # with non-empty text. This works for all apps:
+                    # - Without grounding: finished arrives before turnComplete
+                    # - With grounding: finished arrives after turnComplete
+                    # The outer wait_for(timeout) guards against hangs.
                     if ot and ot.get("finished") and output_text:
                         break
-                    # turnComplete with text already collected — done.
-                    # (Apps without grounding tools deliver text before
-                    # turnComplete; apps WITH grounding may not.)
-                    if turn_done and output_text:
-                        break
-
-                # For grounding-tool apps: turnComplete fires before
-                # outputTranscription arrives. Keep draining until we
-                # get finished=true with text, or timeout.
-                if turn_done and not output_text:
-                    async def _drain():
-                        async for message in ws:
-                            event = json.loads(message)
-                            ot = event.get("outputTranscription")
-                            if ot and ot.get("text"):
-                                output_text[:] = [ot["text"]]
-                                if ot.get("finished"):
-                                    break
-                    try:
-                        await asyncio.wait_for(_drain(), timeout=15)
-                    except asyncio.TimeoutError:
-                        pass
 
         try:
             await asyncio.wait_for(_check(), timeout=timeout)
