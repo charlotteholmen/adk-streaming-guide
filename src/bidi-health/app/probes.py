@@ -149,12 +149,29 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                     if ot and ot.get("text"):
                         output_text[:] = [ot["text"]]
 
-                    # Wait for the FINAL transcription: finished=true
-                    # with non-empty text. This works for all apps:
-                    # - Without grounding: finished arrives before turnComplete
-                    # - With grounding: finished arrives after turnComplete
-                    # The outer wait_for(timeout) guards against hangs.
+                    # Best: finished transcription with text.
                     if ot and ot.get("finished") and output_text:
+                        break
+                    # Fallback: turnComplete after output was already
+                    # collected (apps that never send finished=true).
+                    if event.get("turnComplete") and output_text:
+                        break
+
+                    # turnComplete with no output yet → grounding-tool
+                    # apps deliver transcription late. Keep draining.
+                    if event.get("turnComplete") and not output_text:
+                        async def _drain():
+                            async for msg in ws:
+                                ev = json.loads(msg)
+                                o = ev.get("outputTranscription")
+                                if o and o.get("text"):
+                                    output_text[:] = [o["text"]]
+                                if o and o.get("finished") and output_text:
+                                    break
+                        try:
+                            await asyncio.wait_for(_drain(), timeout=15)
+                        except asyncio.TimeoutError:
+                            pass
                         break
 
         try:
