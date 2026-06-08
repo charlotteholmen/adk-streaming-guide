@@ -74,7 +74,7 @@ async def text_probe(app: AppConfig, defaults: Defaults) -> ProbeResult:
 
                     ot = event.get("outputTranscription")
                     if ot and ot.get("text"):
-                        transcript_parts.append(ot["text"])
+                        transcript_parts[:] = [ot["text"]]
 
                     # turnComplete is the canonical end-of-turn signal but can
                     # be late or missed. outputTranscription.finished is the
@@ -134,7 +134,6 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                     await ws.send(app.setup_message)
                 for offset in range(0, len(payload), AUDIO_CHUNK_BYTES):
                     await ws.send(payload[offset : offset + AUDIO_CHUNK_BYTES])
-                    # Pace at real-time so VAD sees a normal stream, not a burst
                     await asyncio.sleep(AUDIO_CHUNK_MS / 1000)
 
                 turn_done = False
@@ -143,10 +142,10 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
 
                     it = event.get("inputTranscription")
                     if it and it.get("text"):
-                        input_parts.append(it["text"])
+                        input_parts[:] = [it["text"]]
                     ot = event.get("outputTranscription")
                     if ot and ot.get("text"):
-                        output_parts.append(ot["text"])
+                        output_parts[:] = [ot["text"]]
 
                     if event.get("turnComplete") or (ot and ot.get("finished")):
                         turn_done = True
@@ -161,7 +160,7 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                             event = json.loads(message)
                             ot = event.get("outputTranscription")
                             if ot and ot.get("text"):
-                                output_parts.append(ot["text"])
+                                output_parts[:] = [ot["text"]]
                                 break
                     try:
                         await asyncio.wait_for(_drain_late(), timeout=3)
