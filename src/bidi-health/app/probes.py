@@ -154,6 +154,7 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
 
                 # Grace period: with grounding tools the native audio model
                 # may deliver outputTranscription AFTER turnComplete.
+                # Wait for the finished marker with non-empty text.
                 if turn_done and not output_parts:
                     async def _drain_late():
                         async for message in ws:
@@ -161,9 +162,10 @@ async def audio_probe(app: AppConfig, defaults: Defaults, pcm: bytes) -> ProbeRe
                             ot = event.get("outputTranscription")
                             if ot and ot.get("text"):
                                 output_parts[:] = [ot["text"]]
-                                break
+                                if ot.get("finished"):
+                                    break
                     try:
-                        await asyncio.wait_for(_drain_late(), timeout=3)
+                        await asyncio.wait_for(_drain_late(), timeout=15)
                     except asyncio.TimeoutError:
                         pass
 
